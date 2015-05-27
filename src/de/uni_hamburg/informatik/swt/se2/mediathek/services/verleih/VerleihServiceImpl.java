@@ -137,15 +137,12 @@ public class VerleihServiceImpl extends AbstractObservableService implements
     public boolean sindAlleNichtVerliehen(List<Medium> medien)
     {
         assert medienImBestand(medien) : "Vorbedingung verletzt: medienImBestand(medien)";
-        boolean result = true;
+
         for (Medium medium : medien)
         {
-            if (istVerliehen(medium))
-            {
-                result = false;
-            }
+            if (istVerliehen(medium)) return false;
         }
-        return result;
+        return true;
     }
 
     @Override
@@ -154,15 +151,11 @@ public class VerleihServiceImpl extends AbstractObservableService implements
         assert kundeImBestand(kunde) : "Vorbedingung verletzt: kundeImBestand(kunde)";
         assert medienImBestand(medien) : "Vorbedingung verletzt: medienImBestand(medien)";
 
-        boolean result = true;
         for (Medium medium : medien)
         {
-            if (!istVerliehenAn(kunde, medium))
-            {
-                result = false;
-            }
+            if (!istVerliehenAn(kunde, medium)) return false;
         }
-        return result;
+        return true;
     }
 
     @Override
@@ -179,15 +172,11 @@ public class VerleihServiceImpl extends AbstractObservableService implements
     {
         assert medienImBestand(medien) : "Vorbedingung verletzt: medienImBestand(medien)";
 
-        boolean result = true;
         for (Medium medium : medien)
         {
-            if (!istVerliehen(medium))
-            {
-                result = false;
-            }
+            if (!istVerliehen(medium)) return false;
         }
-        return result;
+        return true;
     }
 
     @Override
@@ -205,21 +194,34 @@ public class VerleihServiceImpl extends AbstractObservableService implements
             {
                 if (istVormerker(kunde, medium))
                 {
-                    _vormerkungskarten.get(medium)
-                        .rueckeAuf();
                     verleihe(medium, kunde, ausleihDatum);
+                    // Lösche, wenn nötig, Vormerkungskarte
+                    if (_vormerkungskarten.get(medium)
+                        .rueckeAuf()) _vormerkungskarten.remove(medium);
                 }
             }
             else
-            {
                 verleihe(medium, kunde, ausleihDatum);
-            }
         }
         // XXX Was passiert wenn das Protokollieren mitten in der Schleife
         // schief geht? informiereUeberAenderung in einen finally Block?
         informiereUeberAenderung();
     }
 
+    /**
+     * Hilfsmethode zum Verleihen von Medien an Kunden
+     * 
+     * @param medium - Das zu verleihende Medium
+     * @param kunde - Der leihende Kunde
+     * @param ausleihDatum - ...
+     * @throws ProtokollierException
+     * 
+     * @require medium != null
+     * @require medium ist nicht verliehen (und nicht oder für Kunde Vorgemerkt)
+     * @require kunde != null
+     * @require ausleihDatum != null
+     * 
+     */
     private void verleihe(Medium medium, Kunde kunde, Datum ausleihDatum)
             throws ProtokollierException
     {
@@ -249,23 +251,20 @@ public class VerleihServiceImpl extends AbstractObservableService implements
         assert medien != null : "Vorbedingung verletzt: medien != null";
         assert !medien.isEmpty() : "Vorbedingung verletzt: !medien.isEmpty()";
 
-        boolean result = true;
         for (Medium medium : medien)
         {
-            if (!mediumImBestand(medium))
-            {
-                result = false;
-                break;
-            }
+            if (!mediumImBestand(medium)) return false;
         }
-        return result;
+        return true;
     }
 
     @Override
     public List<Medium> getAusgelieheneMedienFuer(Kunde kunde)
     {
         assert kundeImBestand(kunde) : "Vorbedingung verletzt: kundeImBestand(kunde)";
+
         List<Medium> result = new ArrayList<Medium>();
+
         for (Verleihkarte verleihkarte : _verleihkarten.values())
         {
             if (verleihkarte.getEntleiher()
@@ -282,14 +281,15 @@ public class VerleihServiceImpl extends AbstractObservableService implements
     {
         assert istVerliehen(medium) : "Vorbedingung verletzt: istVerliehen(medium)";
 
-        Verleihkarte verleihkarte = _verleihkarten.get(medium);
-        return verleihkarte.getEntleiher();
+        return _verleihkarten.get(medium)
+            .getEntleiher();
     }
 
     @Override
     public Verleihkarte getVerleihkarteFuer(Medium medium)
     {
         assert istVerliehen(medium) : "Vorbedingung verletzt: istVerliehen(medium)";
+
         return _verleihkarten.get(medium);
     }
 
@@ -297,7 +297,9 @@ public class VerleihServiceImpl extends AbstractObservableService implements
     public List<Verleihkarte> getVerleihkartenFuer(Kunde kunde)
     {
         assert kundeImBestand(kunde) : "Vorbedingung verletzt: kundeImBestand(kunde)";
+
         List<Verleihkarte> result = new ArrayList<Verleihkarte>();
+
         for (Verleihkarte verleihkarte : _verleihkarten.values())
         {
             if (verleihkarte.getEntleiher()
@@ -310,45 +312,47 @@ public class VerleihServiceImpl extends AbstractObservableService implements
     }
 
     /**
-     * Stellt eine Vormerkungskarte falss keiner existiert.
+     * Merkt ein Medium vor.
+     * Sofern keine Vormerker vorhanden sind, wird eine Vormerkungskarte erstellt.
      * 
-     * @require medium!=null
-     * @require vormerker!=null
-     * @param vormerker
-     * @param medium
+     * @param vormerker Vormerkender Kunde
+     * @param medium vorzumerkendes Medium
+     * 
+     * @require medium != null
+     * @require vormerker != null
+     * @require Vormerken ist möglich (nicht mehr als 2 Vormerker)
      */
     @Override
-    public void vormerken(Kunde vormerker, Medium medium)
+    public void merkeVor(Kunde vormerker, Medium medium)
     {
         assert vormerker != null : "vormerker = null";
         assert medium != null : "Medium = null";
 
-        Vormerkungskarte vormerkungskarte;
-        if (_vormerkungskarten.get(medium) == null)
-        {
-            vormerkungskarte = new Vormerkungskarte(medium, vormerker);
-            _vormerkungskarten.put(medium, vormerkungskarte);
-        }
+        if (!_vormerkungskarten.containsKey(medium))
+            _vormerkungskarten.put(medium, new Vormerkungskarte(medium,
+                    vormerker));
         else
-        {
-            vormerkungskarte = _vormerkungskarten.get(medium);
-            vormerkungskarte.addVormerker(vormerker);
-        }
+            _vormerkungskarten.get(medium)
+                .addVormerker(vormerker);
+
         informiereUeberAenderung();
     }
 
+    /**
+     * Prüfe, ob für gegebenes Medium vorgemerkt wurde
+     * @param medium - Das Medium
+     * @return ist vorgemerkt?
+     */
     private boolean istVorgemerkt(Medium medium)
     {
-        Vormerkungskarte karte;
-        karte = _vormerkungskarten.get(medium);
-        return !(karte == null);
+        return _vormerkungskarten.containsKey(medium);
     }
 
     @Override
     public boolean istVormerker(Kunde kunde, Medium medium)
     {
         return _vormerkungskarten.get(medium)
-            .getVormerker1()
+            .getVormerker(0)
             .equals(kunde);
     }
 

@@ -1,5 +1,7 @@
 package de.uni_hamburg.informatik.swt.se2.mediathek.materialien;
 
+import java.util.LinkedList;
+
 import de.uni_hamburg.informatik.swt.se2.mediathek.materialien.medien.Medium;
 
 /**
@@ -16,11 +18,9 @@ import de.uni_hamburg.informatik.swt.se2.mediathek.materialien.medien.Medium;
  */
 public class Vormerkungskarte
 {
-    // Eigenschaften einer Verleihkarte
     private final Medium _medium;
-    private Kunde _vormerker1 = null;
-    private Kunde _vormerker2 = null;
-    private Kunde _vormerker3 = null;
+    private LinkedList<Kunde> _vormerker;
+    private static final int VORMERKERZAHL = 3;
 
     /**
      * Initialisert eine neue Verleihkarte mit den gegebenen Daten.
@@ -38,35 +38,34 @@ public class Vormerkungskarte
     {
         assert medium != null : "Vorbedingung verletzt: medium != null";
         assert vormerker != null : "Vorbedingung verletzt: vormerker != null";
+
         _medium = medium;
-        _vormerker1 = vormerker;
+        _vormerker = new LinkedList<Kunde>();
+        _vormerker.add(vormerker);
     }
 
     /**
-     * Fügt ein vormerker zu die karte
+     * Fügt einen Vormerker zu dieser Karte hinzu, sofern dieser noch nicht vorhanden ist.
      * 
      * @param vormerker
+     * @require vormerker != null
      */
     public void addVormerker(Kunde vormerker)
     {
-        if (vormerkerFrei() && !istKundeVormerker(vormerker))
-        {
-            if (_vormerker2 == null)
-                _vormerker2 = vormerker;
-            else if (_vormerker3 == null) _vormerker3 = vormerker;
-        }
+        assert vormerker != null : "Vorbedingung verletzt: vormerker != null";
+
+        if (vormerkerFrei() && !_vormerker.contains(vormerker))
+            _vormerker.add(vormerker);
     }
 
+    /**
+     * Prüfe ob der Kunde als Vormerker gelistet ist
+     * @param kunde 
+     * @return Ist Kunde gelistet oder nicht.
+     */
     public boolean istKundeVormerker(Kunde kunde)
     {
-
-        if (_vormerker1 == kunde)
-            return true;
-        else if (_vormerker2 == kunde)
-            return true;
-        else if (_vormerker3 == kunde) return true;
-        return false;
-
+        return _vormerker.contains(kunde);
     }
 
     /**
@@ -76,8 +75,7 @@ public class Vormerkungskarte
      */
     public boolean vormerkerFrei()
     {
-
-        return (_vormerker1 == null || _vormerker2 == null || _vormerker3 == null);
+        return _vormerker.size() < VORMERKERZAHL;
     }
 
     /**
@@ -85,48 +83,31 @@ public class Vormerkungskarte
      * 
      * @return den Kunden, der das Medium vorgemerkt hat.
      * 
-     * @ensure result != null
+     * @require index zwischen 0 & VORMERKERZAHL - 1
+     * @ensure result == null || result Kunde, der das Medium vorgemerkt hat.
      */
-
-    public Kunde getVormerker1()
+    public Kunde getVormerker(int index)
     {
-        return _vormerker1;
+        assert index >= 0 && index < VORMERKERZAHL : "precondition violated";
+
+        //TODO unschön
+        try
+        {
+            return _vormerker.get(index);
+        }
+        catch (IndexOutOfBoundsException e)
+        {
+            return null;
+        }
     }
 
     /**
-     * Gibt den Vormerker zurück.
+     * Gibt das Medium der Vormerkungskarte zurück.
      * 
-     * @return den Kunden, der das Medium vorgemerkt hat.
-     * 
-     * @ensure result != null
-     */
-
-    public Kunde getVormerker2()
-    {
-        return _vormerker2;
-    }
-
-    /**
-     * Gibt den Vormerker zurück.
-     * 
-     * @return den Kunden, der das Medium vorgemerkt hat.
+     * @return Medium
      * 
      * @ensure result != null
      */
-
-    public Kunde getVormerker3()
-    {
-        return _vormerker3;
-    }
-
-    /**
-     * Gibt das Medium zurück.
-     * 
-     * @return das Medium.
-     * 
-     * @ensure result != null
-     */
-
     public Medium getMedium()
     {
         return _medium;
@@ -143,83 +124,51 @@ public class Vormerkungskarte
      */
     public String getFormatiertenString()
     {
-        /* if (_vormerker2 == null && _vormerker3 == null)
-         {
-             return _medium.getFormatiertenString() + "vorgemerkt von:\n"
-                     + _vormerker1.getFormatiertenString();
-         }
-         else if (_vormerker3 == null)
-         {
-             return _medium.getFormatiertenString() + "vorgemerkt von:\n"
-                     + _vormerker1.getFormatiertenString() + "\n"
-                     + _vormerker2.getFormatiertenString();
-         }
-         else
-             return _medium.getFormatiertenString() + "vorgemerkt von:\n"
-                     + _vormerker1.getFormatiertenString() + "\n"
-                     + _vormerker2.getFormatiertenString() + "\n"
-                     + _vormerker3.getFormatiertenString();*/
-
-        return _medium.getFormatiertenString()
-                + "vorgemerkt von:\n"
-                + ((_vormerker1 == null) ? " "
-                        : _vormerker1.getFormatiertenString())
-                + "\n"
-                + ((_vormerker2 == null) ? " "
-                        : _vormerker2.getFormatiertenString())
-                + "\n"
-                + ((_vormerker3 == null) ? " "
-                        : _vormerker3.getFormatiertenString());
-
+        String formatstr = _medium.getFormatiertenString();
+        for (int i = 0; this.getVormerker(i) != null; ++i)
+        {
+            formatstr = formatstr + "vorgemerkt von:" + "\n"
+                    + this.getVormerker(0)
+                        .getFormatiertenString();
+        }
+        return formatstr;
     }
 
     @Override
     public int hashCode()
     {
         final int prime = 31;
-        int result = 1;
-        result = prime * result
-                + ((_vormerker1 == null) ? 0 : _vormerker1.hashCode());
-        result = prime * result
-                + ((_vormerker2 == null) ? 0 : _vormerker2.hashCode());
-        result = prime * result
-                + ((_vormerker3 == null) ? 0 : _vormerker3.hashCode());
+        int result;
 
-        result = prime * result + ((_medium == null) ? 0 : _medium.hashCode());
-        return result;
+        result = prime + getVormerker(0).hashCode();
+
+        result = prime * result
+                + ((getVormerker(1) == null) ? 0 : getVormerker(1).hashCode());
+
+        result = prime * result
+                + ((getVormerker(2) == null) ? 0 : getVormerker(2).hashCode());
+
+        return prime * result + _medium.hashCode();
     }
 
     @Override
     public boolean equals(Object obj)
     {
-        boolean result = false;
         if (obj instanceof Vormerkungskarte)
         {
             Vormerkungskarte other = (Vormerkungskarte) obj;
 
-            if (_vormerker2 == null && _vormerker3 == null)
+            if (!other.getMedium()
+                .equals(_medium)) return false;
+            for (int i = 0; i < VORMERKERZAHL; ++i)
             {
-                if (other.getVormerker1()
-                    .equals(_vormerker1) && other.getMedium()
-                    .equals(_medium)) result = true;
+                if (!other.getVormerker(i)
+                    .equals(this.getVormerker(i))) return false;
             }
-            else if (_vormerker3 == null)
-            {
-                if (other.getVormerker1()
-                    .equals(_vormerker1) && other.getVormerker2()
-                    .equals(_vormerker2) && other.getMedium()
-                    .equals(_medium)) result = true;
-            }
-            else
-            {
-                if (other.getVormerker1()
-                    .equals(_vormerker1) && other.getVormerker2()
-                    .equals(_vormerker2) && other.getVormerker3()
-                    .equals(_vormerker3) && other.getMedium()
-                    .equals(_medium)) result = true;
-            }
+            return true;
         }
-        return result;
+        else
+            return false;
     }
 
     @Override
@@ -229,13 +178,14 @@ public class Vormerkungskarte
     }
 
     /**
-     * Rückt Vormerker und Löscht vormerker 1
+     * Rückt alle Vormerker auf
+     * 
+     * @return True wenn die V.Karte entfernt werden kann (/muss)
+     * @ensure result = True || False
      */
-    public void rueckeAuf()
+    public boolean rueckeAuf()
     {
-        _vormerker1 = _vormerker2;
-        _vormerker2 = _vormerker3;
-        _vormerker3 = null;
-
+        _vormerker.poll();
+        return _vormerker.isEmpty();
     }
 }
